@@ -54,3 +54,26 @@
     - 위와 마찬가지로 API 스펙이 바뀌면 문제가 된다. 엔티티에 @JsonIgnore와 같은 프레젠테이션 계층을 위한 로직이 추가된다.
   - array로 반환하지 않고 한 번 감싼 후, 반환한다.
   - 전체를 다 갈아버리기 때문에 몇몇 프로퍼티가 null로 업데이트 되는 경우가 있다.
+
+# API 개발 고급 - 지연 로딩과 조회 성능 최적화
+### 1. 간단한 주문 조회 V1 : 엔티티를 직접 노출
+    // 1. json 변환할 때(jackson), 무한 루프 발생, 양방향 연관관계
+    // 해결 방법 : 양방향 연관관계 중, 하나를 JsonIgnore 처리
+    // 2. json 변환할 때(jackson), lazy로 설정된 필드가 본래 클래스로 초기화 된 것이 아닌, 프록시 클래스라 문제 발생
+    // 해결 방법 : Hibernate5Module 모듈 등록(지연 로딩 설정된 필드는 무시하는 기능이며 null로 셋팅됨, FORCE_LAZY_LOADING 옵션도 존재)
+    // 엔티티를 그대로 리턴하는 것도 엔티티 정보를 전부 노출하는 것이기 때문에 문제가 됨. DTO로 변환해서 리턴하자.
+    @GetMapping("/api/v1/simple-orders")
+    public List<Order> odersV1() {
+        // JPQL은 SQL로 그대로 번역되기 때문에 EAGER로 설정해도 성능 최적화가 되지 않음(em.find로 실행해야 eager로 한 번에 끌고 올 수 있는데..)
+        List<Order> all = orderRepository.findAllByString(new OrderSearch());
+
+        // 루프 주석 처리하고 EAGER로 설정하면 되긴 하지만 그렇게 하면 안된다!
+        // 다른 경우에 즉시 로딩으로 연관관계 데이터가 필요 없는 경우에도 쿼리가 수행되는 성능 문제가 발생할 수 있다.
+        // 성능 튜닝이 매우 어려워지므로 LAZY를 항상 기본으로 설정하고 필요한 경우, 성능 최적화가 필요한 경우, fetch join을 사용한다.
+        for (Order order : all) {
+            order.getMember().getAddress();
+            order.getDelivery().getAddress();
+        }
+
+        return all;
+    }
