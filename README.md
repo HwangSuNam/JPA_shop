@@ -77,3 +77,21 @@
 
         return all;
     }
+
+### 2. 간단한 주문 조회 V2 : 엔티티를 DTO로 변환
+    // API 스펙에 맞춰서 DTO를 만들어서 리턴, 엔티티가 바뀌어도 바뀔 일이 없음
+    // 1. V1과 마찬가지로 lazy로 인한 성능 문제가 발생, 먼저 Order를 가져오고 루프 돌면서 lazy 필드가 초기화됨. 쿼리가 5번 수행됨(1+N(Member + Delivery))
+    // N인 이유는 지연 로딩의 경우, 영속성 컨텍스트에서 조회하므로 이미 조회된 경우 쿼리를 생략할 수 있다.
+    // EAGER로 해도 해결 안됨. 쿼리 예측 조차 되지 않음
+    @GetMapping("/api/v2/simple-orders")
+    public List<SimpleOrderDto> odersV2() {
+        // JPQL은 SQL로 그대로 번역되기 때문에 EAGER로 설정해도 성능 최적화가 되지 않음
+        // 최초 한 번 Order를 가져오고 그 다음에 EAGER로 셋팅된 것을 보면서 난리침
+        List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(Collectors.toList());
+
+        return result;
+    }
