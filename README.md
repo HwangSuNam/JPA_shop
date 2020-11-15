@@ -95,3 +95,17 @@
 
         return result;
     }
+
+### 3. 간단한 주문 조회 V3 : 엔티티를 DTO로 변환 - 페치 조인 최적화
+    // 엔티티를 fetch join을 사용해서 쿼리 한 번에 조회
+    // fetch join으로 Order -> Member, Order -> Delivery는 이미 조회된 상태이므로 지연로딩x
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> odersV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(Collectors.toList());
+
+        return result;
+    }
